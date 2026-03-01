@@ -1,0 +1,51 @@
+# Alloy configuration for scraping metrics from Context Graph Framework
+# Save this as /etc/alloy/config.alloy or wherever your Alloy config lives
+
+// Prometheus scrape configuration for your application
+prometheus.scrape "context_graph" {
+  targets = [{
+    __address__ = "localhost:9090",  // Your app's metrics endpoint
+    app        = "context_graph",
+  }]
+
+  forward_to = [prometheus.remote_write.metrics_service]
+}
+
+// Remote write to Grafana Cloud (or your self-hosted Prometheus/Grafana)
+prometheus.remote_write "metrics_service" {
+  endpoints {
+    url = "https://prometheus-prod-01-us-central-1.grafana.net/api/prom/push"  // Grafana Cloud URL
+
+    // Use basic auth or other auth method
+    basic_auth {
+      username = "your-grafana-username"
+      password = "your-grafana-api-key"
+    }
+  }
+
+  // Send data to Grafana Mimir/Cloud
+  queue_config {
+    capacity          = 10000
+    max_shards        = 50
+    min_shards        = 1
+    max_samples_per_send = 5000
+    batch_send_deadline = "5s"
+    min_backoff = "30ms"
+    max_backoff = "100ms"
+  }
+}
+
+// Optional: Loki integration for audit logs
+loki.write "audit_logs" {
+  endpoint {
+    url = "https://logs-prod-01-us-central-1.grafana.net/loki/api/v1/push"
+
+    basic_auth {
+      username = "your-grafana-username"
+      password = "your-grafana-api-key"
+    }
+  }
+
+  // You can forward audit logs here
+  // forward_to = [loki.relabel.audit_logs.receiver]
+}

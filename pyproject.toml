@@ -1,0 +1,159 @@
+[build-system]
+requires = ["hatchling>=1.24.0"]
+build-backend = "hatchling.build"
+
+[project]
+name = "autoflow"
+description = "Policy-gated, observable, evaluation-driven auto-improvement engine for AI workflows."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { file = "LICENSE" }
+authors = [{ name = "Your Name", email = "you@example.com" }]
+keywords = ["agents", "observability", "automation", "evaluation", "llm", "prompt-engineering"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Typing :: Typed",
+]
+
+# Keep runtime deps small; rely on extras for optional integrations.
+dependencies = [
+  "typing-extensions>=4.9.0; python_version<'3.11'",
+  "pydantic>=2.7.0",
+]
+
+dynamic = ["version"]
+
+[project.urls]
+Homepage = "https://github.com/your-org/autoflow"
+Repository = "https://github.com/your-org/autoflow"
+Issues = "https://github.com/your-org/autoflow/issues"
+
+[project.scripts]
+autoflow = "autoflow.__main__:main"
+
+# ---- Extras (pip install "autoflow[ai]" etc.) ----
+[project.optional-dependencies]
+# OpenTelemetry integration
+otel = [
+  "opentelemetry-api>=1.22.0",
+  "opentelemetry-sdk>=1.22.0",
+]
+
+# Opinionated "AI workflow" helpers (judging/replay adapters would live here later).
+ai = [
+  "pydantic>=2.7.0",
+]
+
+# Optional graph storage backends
+neo4j = [
+  "neo4j>=5.15.0",
+]
+
+postgres = [
+  "psycopg[binary]>=3.1.18",
+]
+
+# All optional dependencies
+all = [
+  "autoflow[otel,ai,neo4j,postgres]",
+]
+
+# ---- Dependency Groups (uv-compatible) ----
+[dependency-groups]
+# Development dependencies
+dev = [
+  "pytest>=8.0.0",
+  "pytest-cov>=4.1.0",
+  "coverage[toml]>=7.4.0",
+  "ruff>=0.6.0",
+  "mypy>=1.10.0",
+  "types-PyYAML>=6.0.12.20240808",
+]
+
+# Build and publishing
+build = [
+  "build>=1.2.1",
+  "twine>=5.1.1",
+]
+
+# ---- Hatch versioning ----
+[tool.hatch.version]
+path = "src/autoflow/version.py"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/autoflow"]
+
+[tool.hatch.build.targets.sdist]
+include = [
+  "/src",
+  "/README.md",
+  "/LICENSE",
+  "/CHANGELOG.md",
+  "/MANIFEST.in",
+]
+
+# ---- Ruff ----
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+extend-exclude = ["dist", "build", ".venv", "env"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "SIM", "RUF"]
+ignore = ["E501"]  # use line-length instead
+
+[tool.ruff.lint.isort]
+known-first-party = ["autoflow"]
+
+# ---- MyPy ----
+[tool.mypy]
+python_version = "3.10"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+disallow_any_generics = true
+no_implicit_optional = true
+strict_equality = true
+check_untyped_defs = true
+show_error_codes = true
+
+[[tool.mypy.overrides]]
+module = "tests.*"
+disallow_untyped_defs = false
+
+# ---- Pytest ----
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q --tb=short"
+filterwarnings = [
+  "ignore::DeprecationWarning",
+]
+
+# ---- Coverage ----
+[tool.coverage.run]
+source = ["src"]
+branch = true
+omit = [
+  "*/tests/*",
+  "*/test_*.py",
+  "*/__pycache__/*",
+  "*/site-packages/*",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+  "pragma: no cover",
+  "def __repr__",
+  "raise AssertionError",
+  "raise NotImplementedError",
+  "if __name__ == .__main__.:",
+  "if TYPE_CHECKING:",
+  "if typing.TYPE_CHECKING:",
+  "@abstract",
+]

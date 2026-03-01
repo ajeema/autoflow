@@ -1,0 +1,561 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "AutoFlow API",
+    "version": "1.0.0",
+    "description": "AutoFlow engine API - Complete schema for all data models"
+  },
+  "components": {
+    "schemas": {
+      "ObservationEvent": {
+        "description": "An observation event captured during AutoFlow operation.\n\nEvents are the primary unit of observability in AutoFlow.\nThey represent significant actions, state changes, or errors.",
+        "properties": {
+          "event_id": {
+            "description": "Unique event identifier",
+            "title": "Event Id",
+            "type": "string"
+          },
+          "timestamp": {
+            "description": "Event timestamp (UTC)",
+            "format": "date-time",
+            "title": "Timestamp",
+            "type": "string"
+          },
+          "source": {
+            "description": "Source of the event (e.g., component name)",
+            "title": "Source",
+            "type": "string"
+          },
+          "name": {
+            "description": "Event name",
+            "title": "Name",
+            "type": "string"
+          },
+          "attributes": {
+            "additionalProperties": true,
+            "description": "Additional event attributes",
+            "title": "Attributes",
+            "type": "object"
+          }
+        },
+        "required": [
+          "source",
+          "name"
+        ],
+        "title": "ObservationEvent",
+        "type": "object"
+      },
+      "GraphNode": {
+        "description": "A node in the context graph.\n\nNodes represent entities in the codebase or context,\nsuch as files, functions, classes, or variables.",
+        "properties": {
+          "node_id": {
+            "description": "Unique node identifier",
+            "title": "Node Id",
+            "type": "string"
+          },
+          "node_type": {
+            "description": "Type of the node",
+            "title": "Node Type",
+            "type": "string"
+          },
+          "properties": {
+            "type": "object",
+            "additionalProperties": true,
+            "description": "Node properties",
+            "title": "Properties"
+          }
+        },
+        "required": [
+          "node_id",
+          "node_type"
+        ],
+        "title": "GraphNode",
+        "type": "object"
+      },
+      "GraphEdge": {
+        "description": "An edge in the context graph.\n\nEdges represent relationships between nodes,\nsuch as function calls, imports, or dependencies.",
+        "properties": {
+          "edge_type": {
+            "description": "Type of the edge",
+            "title": "Edge Type",
+            "type": "string"
+          },
+          "from_node_id": {
+            "description": "Source node ID",
+            "title": "From Node Id",
+            "type": "string"
+          },
+          "to_node_id": {
+            "description": "Target node ID",
+            "title": "To Node Id",
+            "type": "string"
+          },
+          "properties": {
+            "type": "object",
+            "additionalProperties": true,
+            "description": "Edge properties",
+            "title": "Properties"
+          }
+        },
+        "required": [
+          "edge_type",
+          "from_node_id",
+          "to_node_id"
+        ],
+        "title": "GraphEdge",
+        "type": "object"
+      },
+      "ContextGraphDelta": {
+        "$defs": {
+          "GraphEdge": {
+            "description": "An edge in the context graph.\n\nEdges represent relationships between nodes,\nsuch as function calls, imports, or dependencies.",
+            "properties": {
+              "edge_type": {
+                "description": "Type of the edge",
+                "title": "Edge Type",
+                "type": "string"
+              },
+              "from_node_id": {
+                "description": "Source node ID",
+                "title": "From Node Id",
+                "type": "string"
+              },
+              "to_node_id": {
+                "description": "Target node ID",
+                "title": "To Node Id",
+                "type": "string"
+              },
+              "properties": {
+                "type": "object",
+                "additionalProperties": true,
+                "description": "Edge properties",
+                "title": "Properties"
+              }
+            },
+            "required": [
+              "edge_type",
+              "from_node_id",
+              "to_node_id"
+            ],
+            "title": "GraphEdge",
+            "type": "object"
+          },
+          "GraphNode": {
+            "description": "A node in the context graph.\n\nNodes represent entities in the codebase or context,\nsuch as files, functions, classes, or variables.",
+            "properties": {
+              "node_id": {
+                "description": "Unique node identifier",
+                "title": "Node Id",
+                "type": "string"
+              },
+              "node_type": {
+                "description": "Type of the node",
+                "title": "Node Type",
+                "type": "string"
+              },
+              "properties": {
+                "type": "object",
+                "additionalProperties": true,
+                "description": "Node properties",
+                "title": "Properties"
+              }
+            },
+            "required": [
+              "node_id",
+              "node_type"
+            ],
+            "title": "GraphNode",
+            "type": "object"
+          }
+        },
+        "description": "A set of changes to apply to the context graph.\n\nDeltas contain nodes and edges to add, update, or remove.",
+        "properties": {
+          "nodes": {
+            "description": "Nodes in this delta",
+            "items": {
+              "$ref": "#/$defs/GraphNode"
+            },
+            "title": "Nodes",
+            "type": "array"
+          },
+          "edges": {
+            "description": "Edges in this delta",
+            "items": {
+              "$ref": "#/$defs/GraphEdge"
+            },
+            "title": "Edges",
+            "type": "array"
+          }
+        },
+        "title": "ContextGraphDelta",
+        "type": "object"
+      },
+      "ChangeProposal": {
+        "description": "A proposed change to the codebase.\n\nProposals are generated by AutoFlow and must be evaluated\nand approved before being applied.",
+        "properties": {
+          "proposal_id": {
+            "description": "Unique proposal identifier",
+            "title": "Proposal Id",
+            "type": "string"
+          },
+          "kind": {
+            "description": "Type of change",
+            "title": "Kind",
+            "type": "string"
+          },
+          "title": {
+            "description": "Brief title of the proposal",
+            "title": "Title",
+            "type": "string"
+          },
+          "description": {
+            "description": "Detailed description of the change",
+            "title": "Description",
+            "type": "string"
+          },
+          "risk": {
+            "description": "Risk level of this change",
+            "title": "Risk",
+            "type": "string"
+          },
+          "target_paths": {
+            "description": "Files/directories affected",
+            "items": {
+              "type": "string"
+            },
+            "title": "Target Paths",
+            "type": "array"
+          },
+          "payload": {
+            "additionalProperties": true,
+            "description": "Change-specific data",
+            "title": "Payload",
+            "type": "object"
+          }
+        },
+        "required": [
+          "kind",
+          "title",
+          "description",
+          "risk"
+        ],
+        "title": "ChangeProposal",
+        "type": "object"
+      },
+      "EvaluationResult": {
+        "description": "Result of evaluating a change proposal.\n\nContains whether the proposal passed evaluation,\nits score, and detailed metrics.\n\nScore can be any float value:\n- Positive scores indicate improvement\n- Negative scores indicate regression\n- Zero indicates no change",
+        "properties": {
+          "proposal_id": {
+            "description": "ID of the evaluated proposal",
+            "title": "Proposal Id",
+            "type": "string"
+          },
+          "passed": {
+            "description": "Whether the proposal passed evaluation",
+            "title": "Passed",
+            "type": "boolean"
+          },
+          "score": {
+            "description": "Evaluation score (can be negative or greater than 1)",
+            "title": "Score",
+            "type": "number"
+          },
+          "metrics": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "description": "Detailed metrics",
+            "title": "Metrics",
+            "type": "object"
+          },
+          "notes": {
+            "default": "",
+            "description": "Additional notes or explanation",
+            "title": "Notes",
+            "type": "string"
+          }
+        },
+        "required": [
+          "proposal_id",
+          "passed",
+          "score"
+        ],
+        "title": "EvaluationResult",
+        "type": "object"
+      },
+      "WorkflowStep": {
+        "$defs": {
+          "StepStatus": {
+            "description": "Status of a workflow step execution.",
+            "enum": [
+              "success",
+              "failure",
+              "skipped",
+              "retry",
+              "running",
+              "pending"
+            ],
+            "title": "StepStatus",
+            "type": "string"
+          }
+        },
+        "description": "A single step in a workflow.\n\nSteps represent atomic units of work in a workflow execution.",
+        "properties": {
+          "step_id": {
+            "description": "Unique step identifier",
+            "title": "Step Id",
+            "type": "string"
+          },
+          "name": {
+            "description": "Step name",
+            "title": "Name",
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/$defs/StepStatus",
+            "default": "pending",
+            "description": "Step status"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Step start time",
+            "title": "Started At"
+          },
+          "completed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Step completion time",
+            "title": "Completed At"
+          },
+          "error_message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Error message if failed",
+            "title": "Error Message"
+          },
+          "metadata": {
+            "additionalProperties": true,
+            "description": "Additional step metadata",
+            "title": "Metadata",
+            "type": "object"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "title": "WorkflowStep",
+        "type": "object"
+      },
+      "WorkflowExecution": {
+        "$defs": {
+          "StepStatus": {
+            "description": "Status of a workflow step execution.",
+            "enum": [
+              "success",
+              "failure",
+              "skipped",
+              "retry",
+              "running",
+              "pending"
+            ],
+            "title": "StepStatus",
+            "type": "string"
+          },
+          "WorkflowStep": {
+            "description": "A single step in a workflow.\n\nSteps represent atomic units of work in a workflow execution.",
+            "properties": {
+              "step_id": {
+                "description": "Unique step identifier",
+                "title": "Step Id",
+                "type": "string"
+              },
+              "name": {
+                "description": "Step name",
+                "title": "Name",
+                "type": "string"
+              },
+              "status": {
+                "$ref": "#/$defs/StepStatus",
+                "default": "pending",
+                "description": "Step status"
+              },
+              "started_at": {
+                "anyOf": [
+                  {
+                    "format": "date-time",
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "Step start time",
+                "title": "Started At"
+              },
+              "completed_at": {
+                "anyOf": [
+                  {
+                    "format": "date-time",
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "Step completion time",
+                "title": "Completed At"
+              },
+              "error_message": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "Error message if failed",
+                "title": "Error Message"
+              },
+              "metadata": {
+                "additionalProperties": true,
+                "description": "Additional step metadata",
+                "title": "Metadata",
+                "type": "object"
+              }
+            },
+            "required": [
+              "name"
+            ],
+            "title": "WorkflowStep",
+            "type": "object"
+          }
+        },
+        "description": "A complete workflow execution.\n\nContains all steps and their results.",
+        "properties": {
+          "workflow_id": {
+            "description": "Unique workflow identifier",
+            "title": "Workflow Id",
+            "type": "string"
+          },
+          "name": {
+            "description": "Workflow name",
+            "title": "Name",
+            "type": "string"
+          },
+          "started_at": {
+            "description": "Workflow start time",
+            "format": "date-time",
+            "title": "Started At",
+            "type": "string"
+          },
+          "completed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "Workflow completion time",
+            "title": "Completed At"
+          },
+          "status": {
+            "$ref": "#/$defs/StepStatus",
+            "default": "running",
+            "description": "Overall workflow status"
+          },
+          "steps": {
+            "description": "Workflow steps",
+            "items": {
+              "$ref": "#/$defs/WorkflowStep"
+            },
+            "title": "Steps",
+            "type": "array"
+          },
+          "metadata": {
+            "additionalProperties": true,
+            "description": "Additional metadata",
+            "title": "Metadata",
+            "type": "object"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "title": "WorkflowExecution",
+        "type": "object"
+      },
+      "ContextSource": {
+        "description": "A source of context information.\n\nContext sources provide additional information for decision-making,\nsuch as vector databases, S3 buckets, or Slack conversations.",
+        "properties": {
+          "source_id": {
+            "description": "Unique source identifier",
+            "title": "Source Id",
+            "type": "string"
+          },
+          "source_type": {
+            "description": "Type of context source",
+            "title": "Source Type",
+            "type": "string"
+          },
+          "enabled": {
+            "default": true,
+            "description": "Whether this source is enabled",
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "config": {
+            "additionalProperties": true,
+            "description": "Source-specific configuration",
+            "title": "Config",
+            "type": "object"
+          },
+          "priority": {
+            "default": 0,
+            "description": "Source priority (higher = preferred)",
+            "minimum": 0,
+            "title": "Priority",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "source_id",
+          "source_type"
+        ],
+        "title": "ContextSource",
+        "type": "object"
+      }
+    }
+  }
+}
