@@ -1,24 +1,54 @@
 # AutoFlow
 
-A policy-gated, observable, evaluation-driven auto-improvement engine for AI workflows.
+> A policy-gated, observable, evaluation-driven auto-improvement engine for AI workflows.
 
-AutoFlow is a Python library that enables proactive, iterative improvement of AI systems (agents, prompts, routing, tool orchestration, retries, configs) using:
+AutoFlow enables safe, continuous improvement of AI systems—agents, prompts, routing, and tool orchestration—through structured observation, context graphs, and policy-controlled evaluation. Your AI systems get better over time, without breaking what works.
 
-- Structured observations
-- Context graphs
-- Decision graphs
-- Typed change proposals
-- Replay / shadow evaluation
-- Policy-gated application (e.g., git patches)
-- Full auditability
+**Core Loop:** `Observe → Build Context Graph → Decide → Propose → Evaluate → Apply`
 
-It is designed to be:
+---
 
-- Safe by default (no arbitrary mutation)
-- Observable (OpenTelemetry-ready)
-- Typed and explicit
-- Production-friendly
-- Incrementally adoptable
+## Why AutoFlow?
+
+AI workflows have many tunable levers (prompts, routing, retries, tool selection), but tuning them safely is hard. AutoFlow provides:
+
+- **Safe by default** — No arbitrary mutation; all changes are typed, evaluated, and policy-gated
+- **Observable** — OpenTelemetry-ready with full audit trails
+- **Regression-gated** — Deterministic replay evaluation prevents breaking changes
+- **Production-ready** — Async support, error tolerance, enterprise security
+- **Incrementally adoptable** — Start small, add capabilities as needed
+
+---
+
+## Quick Start
+
+```bash
+pip install autoflow
+```
+
+```python
+from autoflow.orchestrator.engine import AutoImproveEngine
+from autoflow.decide.rules import HighErrorRateRetryRule
+from autoflow.apply.policy import ApplyPolicy
+from autoflow.evaluate.shadow import ShadowEvaluator
+
+# Set up the engine with a simple rule
+engine = AutoImproveEngine(
+    decision_graph=DecisionGraph(rules=[
+        HighErrorRateRetryRule(workflow_id="my_workflow", threshold=3)
+    ]),
+    evaluator=ShadowEvaluator(),
+    applier=ProposalApplier(
+        policy=ApplyPolicy(allowed_paths_prefixes=("config/",)),
+    ),
+)
+
+# Ingest events and generate proposals
+engine.ingest(events)
+proposals = engine.propose()
+```
+
+[See full examples](#minimal-working-example-shadow-evaluation) below.
 
 ---
 
@@ -75,32 +105,30 @@ context = graph.get_context_for_llm("brand:nike", max_hops=2)
 
 ## Philosophy
 
-AutoFlow does **not** mutate your system freely.
+AutoFlow does **not** mutate your system freely. It:
 
-It:
+1. **Observes** — Ingests structured telemetry from your system
+2. **Builds** — Constructs a graph of events and outcomes
+3. **Decides** — Detects optimization opportunities via rules
+4. **Proposes** — Generates typed, auditable change proposals
+5. **Evaluates** — Validates with shadow/replay evaluation
+6. **Applies** — Mutates only when policy allows
 
-1. Observes what your system is doing.
-2. Builds a graph of events and outcomes.
-3. Detects optimization opportunities.
-4. Produces typed, auditable proposals.
-5. Evaluates them (shadow and/or replay).
-6. Applies them only if policy allows.
-
-The system remains in control.
+**You remain in control.**
 
 ---
 
-## Architecture Overview
+## Architecture
 
-AutoFlow is structured around the following loop:
+The core loop is modular and replaceable:
 
-**Observe → Build Context Graph → Decide → Propose → Evaluate → Apply**
-
-Each stage is modular and replaceable:
-- Swap graph stores (SQLite → Postgres/Neo4j)
-- Swap decision logic (rules → learned policies)
-- Swap evaluation strategies (shadow → replay → canary)
-- Swap application backends (git patch → PR backend)
+| Stage | Purpose | Swappable |
+|-------|---------|-----------|
+| Observe | Ingest telemetry | Collectors, event formats |
+| Build | Context graph | SQLite, PostgreSQL, Neo4j |
+| Decide | Generate proposals | Rules, ML policies |
+| Evaluate | Validate | Shadow, replay, canary |
+| Apply | Mutate safely | Git, PR backends |
 
 ---
 
@@ -138,8 +166,6 @@ AutoFlow core remains minimal and generic; autoflow_ai is "batteries included" f
 ---
 
 ## Repository Structure
-
-Below is the full structure you should create:
 
 ```
 autoflow/
@@ -696,7 +722,9 @@ class GitHubPRBackend:
 
 ---
 
-## Future Extensions (Optional)
+## Future Extensions
+
+Contributions welcome for:
 
 - LLM-based improvement heuristics
 - Embedding-powered pattern detection
@@ -704,19 +732,10 @@ class GitHubPRBackend:
 - Prompt regression detection
 - Canary rollout engine
 - Distributed graph store
-- PR-only application workflow as default
+- PR-first application workflow
 
 ---
 
-## Summary
+## License
 
-AutoFlow is:
-
-- Structured
-- Typed
-- Observable
-- Safe
-- Extensible
-- AI-workflow-optimized (via autoflow_ai)
-
-It provides the scaffolding for proactive AI system self-improvement without surrendering safety or control.
+MIT License — see [LICENSE](LICENSE) for details.
