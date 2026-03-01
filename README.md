@@ -114,28 +114,34 @@ pip install autoflow
 
 Recommended extras:
 
+```bash
 pip install "autoflow[dev]"      # ruff, mypy, pytest, build tooling
 pip install "autoflow[otel]"     # OpenTelemetry API + SDK
 pip install "autoflow[ai]"       # installs AI-domain module autoflow_ai
+pip install "autoflow[neo4j]"    # Neo4j graph backend
+pip install "autoflow[postgres]" # PostgreSQL graph backend
 pip install "autoflow[ai,otel]"  # common production combo
-What autoflow_ai is
+pip install "autoflow[all]"      # install all runtime extras (otel, ai, neo4j, postgres)
+```
 
-autoflow_ai is an AI-domain module that provides:
+### What autoflow_ai is
 
-A typed replay dataset format for AI workflows (tool calls, model calls, outcomes)
+`autoflow_ai` is an AI-domain module that provides:
 
-Standard AI metrics (success rate, tool error rate, p95 latency, cost)
+- A typed replay dataset format for AI workflows (tool calls, model calls, outcomes)
+- Standard AI metrics (success rate, tool error rate, p95 latency, cost)
+- AI-specific replay evaluation glue
+- AI-focused rule examples (e.g., retry tuning)
 
-AI-specific replay evaluation glue
+AutoFlow core remains minimal and generic; autoflow_ai is "batteries included" for AI workflows.
 
-AI-focused rule examples (e.g., retry tuning)
+---
 
-AutoFlow core remains minimal and generic; autoflow_ai is “batteries included” for AI workflows.
-
-Repository Structure
+## Repository Structure
 
 Below is the full structure you should create:
 
+```
 autoflow/
 ├── pyproject.toml
 ├── README.md
@@ -202,197 +208,210 @@ autoflow/
 │
 └── tests/
     └── test_engine_smoke.py
-Folder Breakdown
-autoflow/observe/
+```
+
+---
+
+## Folder Breakdown
+
+### autoflow/observe/
 
 Responsible for ingestion of structured telemetry.
 
-events.py
+**events.py**
 
 Creates structured observation events.
 
 Why: Your system must emit structured events if you want deterministic improvement.
 
-collector.py
+**collector.py**
 
 Pluggable sink for storing events (file, DB, Kafka, etc.)
 
 Why: Separation of concerns. Collection ≠ storage.
 
-autoflow/graph/
+### autoflow/graph/
 
 Builds and stores the Context Graph.
 
-context_graph.py
+**context_graph.py**
 
 Transforms events into nodes and edges.
 
 Why: We reason about patterns and flows, not raw logs.
 
-store.py
+**store.py**
 
 Graph storage interface.
 
 Why: You may swap SQLite for Postgres, Neo4j, etc.
 
-sqlite_store.py
+**sqlite_store.py**
 
 Default embedded store.
 
 Why: Zero dependency local persistence, good for local dev and small deployments.
 
-autoflow/decide/
+### autoflow/decide/
 
 The Decision Graph layer.
 
-rules.py
+**rules.py**
 
 Rule-based proposal generation (extensible).
 
 Examples:
-
-Detect repeated tool failures
-
-Detect excessive retries
-
-Detect human overrides
-
-Detect high latency patterns
+- Detect repeated tool failures
+- Detect excessive retries
+- Detect human overrides
+- Detect high latency patterns
 
 Why: Start deterministic before adding ML/LLM heuristics.
 
-decision_graph.py
+**decision_graph.py**
 
 Orchestrates all rules into a unified proposal stream.
 
-autoflow/propose/
+### autoflow/propose/
 
 Defines structured change proposals.
 
-proposals.py
+**proposals.py**
 
 Helpers to construct proposals in consistent conventions.
 
 Why: Never return free-form text. Always return typed diffs/config edits with explicit targets.
 
-autoflow/evaluate/
+### autoflow/evaluate/
 
 Validation before change.
 
-shadow.py
+**shadow.py**
 
 Validates structure and policy safety without applying.
 
 Why: Always support non-destructive dry-run and fast CI checks.
 
-replay.py (NEW)
+**replay.py** (NEW)
 
 Deterministic offline replay evaluator.
 
 Why: Enables regression-gated iteration by comparing baseline vs candidate metrics on historical data.
 
-evaluator.py
+**evaluator.py**
 
 Composite evaluation orchestration.
 
 Why: You can combine shadow + replay + future canary evaluators.
 
-autoflow/apply/
+### autoflow/apply/
 
 Responsible for safe mutation.
 
-policy.py
+**policy.py**
 
 Defines what is allowed:
-
-allowed paths
-
-allowed proposal types
-
-max risk level
+- allowed paths
+- allowed proposal types
+- max risk level
 
 Why: This is your blast-radius limiter.
 
-git_backend.py
+**git_backend.py**
 
 Applies text patches via git apply.
 
 Why: Never mutate main directly. Prefer PR-based flows in production.
 
-applier.py
+**applier.py**
 
 Combines policy checks with a backend implementation.
 
-autoflow/orchestrator/
+### autoflow/orchestrator/
 
 Main control plane.
 
-engine.py
+**engine.py**
 
 Coordinates the full loop:
+- ingest
+- propose
+- evaluate
+- apply
 
-ingest
+### AI-Domain Module: autoflow_ai (optional extra)
 
-propose
+`autoflow_ai` is installed via:
 
-evaluate
-
-apply
-
-AI-Domain Module: autoflow_ai (optional extra)
-
-autoflow_ai is installed via:
-
+```bash
 pip install "autoflow[ai]"
+```
 
 It provides a standard replay dataset for AI workflows:
-
-Tool calls (latency, success, error type)
-
-Model calls (latency, tokens)
-
-Outcomes (success, override, cost, optional quality score)
+- Tool calls (latency, success, error type)
+- Model calls (latency, tokens)
+- Outcomes (success, override, cost, optional quality score)
 
 It also includes:
-
-Standard AI metrics
-
-A replay evaluator wrapper that plugs into core replay evaluation
-
-AI-specific decision rules (starting with retry tuning)
+- Standard AI metrics
+- A replay evaluator wrapper that plugs into core replay evaluation
+- AI-specific decision rules (starting with retry tuning)
 
 Why: AI workflows have natural measurable levers (prompts, routing, retries, tool selection) that are reversible and evaluable offline. The AI module makes this easy.
 
-Installation
+---
+
+## Installation
 
 Local dev:
 
+```bash
 pip install -e ".[dev]"
+```
 
 Or after publishing:
 
+```bash
 pip install autoflow
+```
 
 Optional extras:
 
+```bash
 pip install "autoflow[ai]"
 pip install "autoflow[otel]"
-Minimal Working Example (Shadow Evaluation)
+pip install "autoflow[neo4j]"
+pip install "autoflow[postgres]"
+pip install "autoflow[all]"  # installs all runtime extras
+```
+
+---
+
+## Minimal Working Example (Shadow Evaluation)
 
 Create a directory:
 
+```
 example_project/
 ├── config/
 │   └── workflows.yaml
 └── run_autoflow.py
-config/workflows.yaml
+```
+
+**config/workflows.yaml**
+
+```yaml
 workflows:
   my_workflow:
     retry_policy:
       max_retries: 1
       backoff_ms: [100]
       jitter: false
-run_autoflow.py
+```
+
+**run_autoflow.py**
+
+```python
 from pathlib import Path
 
 from autoflow.orchestrator.engine import AutoImproveEngine
@@ -443,22 +462,29 @@ for p in proposals:
 print("Applied changes:")
 for a in applied:
     print("-", a.reference)
-Real Replay Evaluation Example (AI workflows)
+```
+
+---
+
+## Real Replay Evaluation Example (AI workflows)
 
 This example shows:
+- loading a historical replay dataset (JSONL)
+- running a deterministic replay evaluator that gates regressions
 
-loading a historical replay dataset (JSONL)
-
-running a deterministic replay evaluator that gates regressions
-
-1) Create a replay dataset: replay_runs.jsonl
+**1) Create a replay dataset: replay_runs.jsonl**
 
 Each line is one run:
 
+```json
 {"run_id":"r1","workflow_id":"support_router","tool_calls":[{"tool":"search","latency_ms":120,"success":true}],"model_calls":[{"model":"gpt","latency_ms":300,"input_tokens":800,"output_tokens":200}],"outcome":{"success":true,"human_override":false,"cost_usd":0.01}}
 {"run_id":"r2","workflow_id":"support_router","tool_calls":[{"tool":"search","latency_ms":450,"success":false,"error_type":"timeout"}],"model_calls":[{"model":"gpt","latency_ms":280,"input_tokens":700,"output_tokens":180}],"outcome":{"success":false,"human_override":true,"cost_usd":0.01}}
 {"run_id":"r3","workflow_id":"support_router","tool_calls":[{"tool":"search","latency_ms":200,"success":true}],"model_calls":[{"model":"gpt","latency_ms":320,"input_tokens":900,"output_tokens":220}],"outcome":{"success":true,"human_override":false,"cost_usd":0.01}}
-2) Use the AI replay evaluator
+```
+
+**2) Use the AI replay evaluator**
+
+```python
 from pathlib import Path
 
 from autoflow.orchestrator.engine import AutoImproveEngine
@@ -516,49 +542,58 @@ results = engine.evaluate(proposals)
 
 for r in results:
     print(r.passed, r.notes)
-What replay gates do
+```
+
+### What replay gates do
 
 Replay evaluation computes baseline metrics from historical runs, simulates the candidate proposal effect (deterministically), then enforces:
 
-Max regressions: candidate cannot regress certain metrics beyond allowed deltas
-
-Min improvements: candidate must improve target metrics beyond required deltas
+- **Max regressions:** candidate cannot regress certain metrics beyond allowed deltas
+- **Min improvements:** candidate must improve target metrics beyond required deltas
 
 This is what makes iterative improvement safe and CI-friendly.
 
-How to Test It
-Shadow-based example
+---
+
+## How to Test It
+
+### Shadow-based example
 
 Initialize git:
 
+```bash
 git init
 git add .
 git commit -m "Initial commit"
+```
 
 Run:
 
+```bash
 python run_autoflow.py
+```
 
 Inspect:
+- Generated proposals
+- Working tree changes (if applying patches)
 
-Generated proposals
-
-Working tree changes (if applying patches)
-
-Replay-based example
+### Replay-based example
 
 Install AI extras:
 
+```bash
 pip install "autoflow[ai]"
+```
 
-Create replay_runs.jsonl
+Create `replay_runs.jsonl` and run your replay script and verify gates pass/fail as expected.
 
-Run your replay script and verify gates pass/fail as expected
+---
 
-How to Integrate Into an AI System
+## How to Integrate Into an AI System
 
 Instrument your AI system to emit events like:
 
+```python
 from autoflow.observe.events import make_event
 
 make_event(
@@ -571,9 +606,11 @@ make_event(
         "success": True,
     },
 )
+```
 
 Or:
 
+```python
 make_event(
     source="agent",
     name="human_override",
@@ -582,99 +619,104 @@ make_event(
         "reason": "wrong routing",
     },
 )
+```
 
 Feed them to:
 
+```python
 engine.ingest(events)
+```
 
 Then periodically:
 
+```python
 proposals = engine.propose()
 results = engine.evaluate(proposals)
 engine.apply(proposals, results)
-Production Usage Pattern
+```
+
+---
+
+## Production Usage Pattern
 
 Recommended safe workflow:
 
-observe → propose → evaluate → open PR → CI → merge
+**observe → propose → evaluate → open PR → CI → merge**
 
 Instead of auto-applying directly to main.
 
 You can:
+- Replace GitApplyBackend with a PR backend
+- Add replay evaluation as a hard gate
+- Add golden tests
+- Add cost regression gates
+- Add canary rollout evaluators
 
-Replace GitApplyBackend with a PR backend
+---
 
-Add replay evaluation as a hard gate
+## Safety Guarantees
 
-Add golden tests
+- No arbitrary command execution by default
+- No direct commits to main
+- Policy-restricted path edits
+- Risk levels enforced
+- Evaluation gated before apply
+- Auditable proposals and outcomes
 
-Add cost regression gates
+---
 
-Add canary rollout evaluators
+## Extending the System
 
-Safety Guarantees
+### Add a new Rule
 
-No arbitrary command execution by default
+Create a new rule in `decide/rules.py` or `autoflow_ai/rules/`:
 
-No direct commits to main
-
-Policy-restricted path edits
-
-Risk levels enforced
-
-Evaluation gated before apply
-
-Auditable proposals and outcomes
-
-Extending the System
-Add a new Rule
-
-Create a new rule in decide/rules.py or autoflow_ai/rules/:
-
+```python
 class HighLatencyRule:
     ...
-Add a new Evaluator
+```
 
-Combine it via CompositeEvaluator:
+### Add a new Evaluator
 
+Combine it via `CompositeEvaluator`:
+
+```python
 class GoldenTestEvaluator:
     ...
-Add a new Backend
+```
+
+### Add a new Backend
 
 Example:
 
+```python
 class GitHubPRBackend:
     ...
-Future Extensions (Optional)
+```
 
-LLM-based improvement heuristics
+---
 
-Embedding-powered pattern detection
+## Future Extensions (Optional)
 
-Model selection auto-tuning
+- LLM-based improvement heuristics
+- Embedding-powered pattern detection
+- Model selection auto-tuning
+- Prompt regression detection
+- Canary rollout engine
+- Distributed graph store
+- PR-only application workflow as default
 
-Prompt regression detection
+---
 
-Canary rollout engine
-
-Distributed graph store
-
-PR-only application workflow as default
-
-Summary
+## Summary
 
 AutoFlow is:
 
-Structured
-
-Typed
-
-Observable
-
-Safe
-
-Extensible
-
-AI-workflow-optimized (via autoflow_ai)
+- Structured
+- Typed
+- Observable
+- Safe
+- Extensible
+- AI-workflow-optimized (via autoflow_ai)
 
 It provides the scaffolding for proactive AI system self-improvement without surrendering safety or control.
