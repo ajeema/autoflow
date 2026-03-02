@@ -103,6 +103,50 @@ context = graph.get_context_for_llm("brand:nike", max_hops=2)
 
 ---
 
+## DBOS Durable Workflows (Optional)
+
+**NEW:** AutoFlow offers optional DBOS integration for durable workflow execution.
+
+**Features:**
+- **Durable apply** — Survive failures during git patch application, PR creation
+- **Scheduled optimization** — Run improvement loop on cron schedule
+- **Parallel evaluation** — Concurrent proposal evaluation with flow control
+
+**Installation:**
+
+```bash
+pip install "autoflow[dbos]"
+```
+
+**Quick Start:**
+
+```python
+from autoflow.factory import autoflow_dbos
+
+# Durable patch application
+engine = autoflow_dbos(
+    allowed_paths=["config/", "prompts/"],
+    apply_mode="patch",
+)
+
+# PR-based workflow
+engine = autoflow_dbos_pr(
+    repository="myorg/myrepo",
+    allowed_paths=["config/"],
+)
+```
+
+**Configuration:**
+
+```bash
+export AUTOFLOW_DBOS_ENABLED=true
+export AUTOFLOW_DBOS_APPLY_MODE=pr
+export AUTOFLOW_DBOS_PR_REPOSITORY=myorg/myrepo
+export AUTOFLOW_DBOS_SCHEDULE="0 */6 * * *"  # Every 6 hours
+```
+
+---
+
 ## Philosophy
 
 AutoFlow does **not** mutate your system freely. It:
@@ -148,8 +192,9 @@ pip install "autoflow[otel]"     # OpenTelemetry API + SDK
 pip install "autoflow[ai]"       # installs AI-domain module autoflow_ai
 pip install "autoflow[neo4j]"    # Neo4j graph backend
 pip install "autoflow[postgres]" # PostgreSQL graph backend
+pip install "autoflow[dbos]"     # DBOS durable workflows
 pip install "autoflow[ai,otel]"  # common production combo
-pip install "autoflow[all]"      # install all runtime extras (otel, ai, neo4j, postgres)
+pip install "autoflow[all]"      # install all runtime extras (otel, ai, neo4j, postgres, dbos)
 ```
 
 ### What autoflow_ai is

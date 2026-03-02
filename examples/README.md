@@ -21,6 +21,9 @@ examples/
 │   ├── ai_frameworks/          # AI framework integrations
 │   │   └── ai_frameworks_integrations.py  # Pydantic AI, LangChain, CrewAI
 │   │
+│   ├── dbos/                   # DBOS durable workflows
+│   │   └── dbos_demo.py        # Durable apply, scheduled optimization, queues
+│   │
 │   └── observability/          # Observability integrations
 │       └── otel_grafana_integration.py   # OpenTelemetry + Grafana
 │
@@ -96,6 +99,28 @@ docker run -d -p 4317:4317 grafana/tempo:latest
 python integrations/observability/otel_grafana_integration.py
 ```
 
+### 5. DBOS Durable Workflows
+
+Enable durable, fault-tolerant workflows with DBOS:
+
+```bash
+# Install DBOS
+pip install 'autoflow[dbos]'
+
+# Set up database (PostgreSQL for production, or SQLite for dev)
+export AUTOFLOW_DBOS_ENABLED=true
+export AUTOFLOW_DBOS_SYSTEM_DATABASE_URL=postgresql://user:pass@localhost/autoflow
+
+# Run the example
+python integrations/dbos/dbos_demo.py
+```
+
+**DBOS Features:**
+- **Durable Apply**: Survive failures during git patch application
+- **Scheduled Optimization**: Cron-based automatic improvement loops
+- **Parallel Evaluation**: High-throughput concurrent proposal evaluation
+- **Exactly-Once Execution**: Guaranteed execution with automatic retry
+
 ## 📚 Examples by Use Case
 
 ### For AI/ML Teams
@@ -113,6 +138,7 @@ python integrations/observability/otel_grafana_integration.py
 **Improve System Reliability:**
 - `context_sources/slack_integration.py` - Get approval before changes
 - `workflow_patterns/retry_with_backoff.py` - Intelligent retry logic
+- `integrations/dbos/dbos_demo.py` - Durable workflows that survive failures
 
 **Monitor and Debug:**
 - `integrations/observability/otel_grafana_integration.py` - Full observability stack
@@ -149,6 +175,12 @@ export SLACK_BOT_TOKEN=xoxb-...
 # OpenTelemetry (for observability)
 export OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4317
 export OTEL_SERVICE_NAME=autoflow-engine
+
+# DBOS (for durable workflows)
+export AUTOFLOW_DBOS_ENABLED=true
+export AUTOFLOW_DBOS_SYSTEM_DATABASE_URL=postgresql://user:pass@localhost/autoflow
+export AUTOFLOW_DBOS_SCHEDULER_ENABLED=true
+export AUTOFLOW_DBOS_SCHEDULE="0 */6 * * *"
 ```
 
 ### Local Development Setup
@@ -218,6 +250,9 @@ uv pip install -e ".[all]"
 
 ### I'm deploying to production...
 → Review `production/docker_deployment.py`
+
+### I need durable workflows that survive failures...
+→ Run `integrations/dbos/dbos_demo.py`
 
 ## 🔍 Common Patterns
 

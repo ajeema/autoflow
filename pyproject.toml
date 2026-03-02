@@ -59,9 +59,14 @@ postgres = [
   "psycopg[binary]>=3.1.18",
 ]
 
+# DBOS integration for durable workflows
+dbos = [
+  "dbos>=0.3.0",
+]
+
 # All optional dependencies
 all = [
-  "autoflow[otel,ai,neo4j,postgres]",
+  "autoflow[otel,ai,neo4j,postgres,dbos]",
 ]
 
 # ---- Dependency Groups (uv-compatible) ----

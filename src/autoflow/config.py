@@ -19,22 +19,57 @@ Usage:
 """
 
 import os
+import sys
 import logging
 from pathlib import Path
 from typing import Optional, List, Dict, Any, Union
 from dataclasses import dataclass, field
 from enum import Enum
+from logging.handlers import RotatingFileHandler
 
+# Pydantic
 try:
     from pydantic import BaseModel, Field, validator, root_validator
     PYDANTIC_AVAILABLE = True
 except ImportError:
     PYDANTIC_AVAILABLE = False
-    # Fallback to dataclasses
-    BaseModel = object
+    BaseModel = object  # type: ignore
     Field = lambda default=None, **kwargs: default
     validator = lambda *args, **kwargs: lambda f: f
     root_validator = lambda *args, **kwargs: lambda f: f
+
+# Optional dependencies
+try:
+    import yaml
+    YAML_AVAILABLE = True
+except ImportError:
+    YAML_AVAILABLE = False
+
+try:
+    from pythonjsonlogger import jsonlogger
+    JSONLOGGER_AVAILABLE = True
+except ImportError:
+    JSONLOGGER_AVAILABLE = False
+
+try:
+    from opentelemetry import trace
+    from opentelemetry.sdk.trace import TracerProvider
+    from opentelemetry.sdk.trace.export import BatchSpanProcessor
+    from opentelemetry.sdk.resources import Resource
+    OTEL_AVAILABLE = True
+except ImportError:
+    OTEL_AVAILABLE = False
+    trace = None  # type: ignore
+    TracerProvider = None  # type: ignore
+    BatchSpanProcessor = None  # type: ignore
+    Resource = None  # type: ignore
+
+try:
+    from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
+    OTEL_EXPORTER_AVAILABLE = True
+except ImportError:
+    OTEL_EXPORTER_AVAILABLE = False
+    OTLPSpanExporter = None  # type: ignore
 
 
 # =============================================================================
@@ -575,6 +610,67 @@ class SlackConfig(BaseModel if PYDANTIC_AVAILABLE else object):
         )
 
 
+class DBOSConfig(BaseModel if PYDANTIC_AVAILABLE else object):
+    """DBOS durable workflow configuration."""
+
+    # Core settings
+    enabled: bool = Field(default=False, description="Enable DBOS integration")
+    application_name: str = Field(default="autoflow", description="DBOS application name")
+
+    # Database (DBOS uses Postgres; SQLite for dev)
+    system_database_url: Optional[str] = Field(
+        default=None,
+        description="DBOS system database URL (Postgres or SQLite)"
+    )
+
+    # Scheduler settings
+    scheduler_enabled: bool = Field(default=True, description="Enable scheduled workflows")
+    optimization_schedule: str = Field(
+        default="0 */6 * * *",
+        description="Cron schedule for optimization workflow (default: every 6 hours)"
+    )
+
+    # Apply backend settings
+    apply_mode: str = Field(
+        default="patch",
+        description="Apply mode: 'patch' (git apply), 'pr' (create PR), 'custom'"
+    )
+    pr_repository: Optional[str] = Field(
+        default=None,
+        description="GitHub repo for PR mode (e.g., 'owner/repo')"
+    )
+    pr_branch_prefix: str = Field(default="autoflow/", description="Branch name prefix for PRs")
+
+    # Queue settings
+    evaluation_queue_concurrency: int = Field(
+        default=5,
+        ge=1,
+        description="Max concurrent evaluation tasks"
+    )
+
+    # Custom handler
+    custom_action_handler: Optional[str] = Field(
+        default=None,
+        description="Python import path to custom action handler function"
+    )
+
+    @classmethod
+    def from_env(cls) -> "DBOSConfig":
+        """Load from environment variables."""
+        return cls(
+            enabled=os.getenv("AUTOFLOW_DBOS_ENABLED", "false").lower() == "true",
+            application_name=os.getenv("AUTOFLOW_DBOS_APP_NAME", "autoflow"),
+            system_database_url=os.getenv("AUTOFLOW_DBOS_SYSTEM_DATABASE_URL"),
+            scheduler_enabled=os.getenv("AUTOFLOW_DBOS_SCHEDULER_ENABLED", "true").lower() == "true",
+            optimization_schedule=os.getenv("AUTOFLOW_DBOS_SCHEDULE", "0 */6 * * *"),
+            apply_mode=os.getenv("AUTOFLOW_DBOS_APPLY_MODE", "patch"),
+            pr_repository=os.getenv("AUTOFLOW_DBOS_PR_REPOSITORY"),
+            pr_branch_prefix=os.getenv("AUTOFLOW_DBOS_PR_BRANCH_PREFIX", "autoflow/"),
+            evaluation_queue_concurrency=int(os.getenv("AUTOFLOW_DBOS_EVAL_CONCURRENCY", "5")),
+            custom_action_handler=os.getenv("AUTOFLOW_DBOS_CUSTOM_HANDLER"),
+        )
+
+
 # =============================================================================
 # Complete AutoFlow Configuration
 # =============================================================================
@@ -598,6 +694,7 @@ class AutoFlowConfig(BaseModel if PYDANTIC_AVAILABLE else object):
     logging: LoggingConfig = Field(default_factory=LoggingConfig)
     s3: S3Config = Field(default_factory=S3Config)
     slack: SlackConfig = Field(default_factory=SlackConfig)
+    dbos: DBOSConfig = Field(default_factory=DBOSConfig)
 
     @classmethod
     def from_env(cls) -> "AutoFlowConfig":
@@ -617,18 +714,17 @@ class AutoFlowConfig(BaseModel if PYDANTIC_AVAILABLE else object):
             logging=LoggingConfig.from_env(),
             s3=S3Config.from_env(),
             slack=SlackConfig.from_env(),
+            dbos=DBOSConfig.from_env(),
         )
 
     @classmethod
     def from_yaml(cls, path: str) -> "AutoFlowConfig":
         """Load configuration from YAML file."""
-        try:
-            import yaml
-            with open(path) as f:
-                data = yaml.safe_load(f)
-            return cls(**data)
-        except ImportError:
+        if not YAML_AVAILABLE:
             raise ImportError("PyYAML required: pip install pyyaml")
+        with open(path) as f:
+            data = yaml.safe_load(f)
+        return cls(**data)
 
     def validate(self) -> List[str]:
         """Validate configuration and return list of errors."""
@@ -654,19 +750,15 @@ class AutoFlowConfig(BaseModel if PYDANTIC_AVAILABLE else object):
 
     def setup_logging(self):
         """Set up logging based on configuration."""
-        import logging
-
         log_level = getattr(logging, self.logging.level.upper())
 
         handlers = []
 
         if self.logging.to_console:
-            import sys
             console_handler = logging.StreamHandler(sys.stdout)
             handlers.append(console_handler)
 
         if self.logging.to_file and self.logging.file_path:
-            from logging.handlers import RotatingFileHandler
             file_handler = RotatingFileHandler(
                 self.logging.file_path,
                 maxBytes=self.logging.max_bytes,
@@ -676,7 +768,8 @@ class AutoFlowConfig(BaseModel if PYDANTIC_AVAILABLE else object):
 
         # Configure formatter
         if self.logging.format == LogFormat.JSON:
-            from pythonjsonlogger import jsonlogger
+            if not JSONLOGGER_AVAILABLE:
+                raise ImportError("python-json-logger required: pip install python-json-logger")
             formatter = jsonlogger.JsonFormatter
         else:
             formatter = logging.Formatter(
@@ -699,30 +792,29 @@ class AutoFlowConfig(BaseModel if PYDANTIC_AVAILABLE else object):
 
         # Set up OpenTelemetry if enabled
         if self.observability.otel_enabled:
-            try:
-                from opentelemetry import trace
-                from opentelemetry.sdk.trace import TracerProvider
-                from opentelemetry.sdk.trace.export import BatchSpanProcessor
-                from opentelemetry.sdk.resources import Resource
+            if not OTEL_AVAILABLE:
+                logging.warning("OpenTelemetry packages not installed")
+                return
 
-                # Create resource
-                resource_attrs = {
-                    "service.name": self.observability.otel_service_name,
-                    "service.version": self.observability.otel_service_version,
-                    "deployment.environment": self.observability.otel_deployment_environment,
-                }
-                if self.observability.otel_service_namespace != "default":
-                    resource_attrs["service.namespace"] = self.observability.otel_service_namespace
+            # Create resource
+            resource_attrs = {
+                "service.name": self.observability.otel_service_name,
+                "service.version": self.observability.otel_service_version,
+                "deployment.environment": self.observability.otel_deployment_environment,
+            }
+            if self.observability.otel_service_namespace != "default":
+                resource_attrs["service.namespace"] = self.observability.otel_service_namespace
 
-                resource = Resource.create(resource_attrs)
+            resource = Resource.create(resource_attrs)
 
-                # Create provider
-                provider = TracerProvider(resource=resource)
+            # Create provider
+            provider = TracerProvider(resource=resource)
 
-                # Add OTLP exporter if endpoint configured
-                if self.observability.otel_exporter_otlp_endpoint:
-                    from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
-
+            # Add OTLP exporter if endpoint configured
+            if self.observability.otel_exporter_otlp_endpoint:
+                if not OTEL_EXPORTER_AVAILABLE:
+                    logging.warning("OTLP exporter not available")
+                else:
                     exporter = OTLPSpanExporter(
                         endpoint=self.observability.otel_exporter_otlp_endpoint,
                         headers=self._parse_headers(self.observability.otel_exporter_otlp_headers),
@@ -731,14 +823,8 @@ class AutoFlowConfig(BaseModel if PYDANTIC_AVAILABLE else object):
                     )
                     provider.add_span_processor(BatchSpanProcessor(exporter))
 
-                trace.set_tracer_provider(provider)
-
-                import logging
-                logging.info(f"OpenTelemetry initialized: {self.observability.otel_service_name}")
-
-            except ImportError:
-                import logging
-                logging.warning("OpenTelemetry packages not installed")
+            trace.set_tracer_provider(provider)
+            logging.info(f"OpenTelemetry initialized: {self.observability.otel_service_name}")
 
     def _parse_headers(self, headers_str: Optional[str]) -> Optional[Dict[str, str]]:
         """Parse OTLP headers from string."""

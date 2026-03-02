@@ -15,12 +15,20 @@ Usage:
     AUTOFLOW_MAX_PROPOSALS=10 autoflow propose --context file.py
 """
 
+import json
 import os
 import sys
 from typing import Optional
 
 import typer
 from pydantic import BaseModel, Field
+
+# Optional dependencies
+try:
+    import yaml
+    YAML_AVAILABLE = True
+except ImportError:
+    YAML_AVAILABLE = False
 
 from autoflow.api_models import (
     ProposeRequest,
@@ -124,7 +132,6 @@ def propose(
     """
     from autoflow import AutoImproveEngine
     from autoflow.graph.sqlite_store import SQLiteGraphStore
-    import json
 
     # Load configuration
     cli_settings = CLISettings.from_env()
@@ -166,8 +173,6 @@ def evaluate(
     Example:
         autoflow evaluate --proposal @proposal.json --evaluator replay --dataset @dataset.json
     """
-    import json
-
     # Load configuration
     cli_settings = CLISettings.from_env()
     config = _load_config(cli_settings)
@@ -281,8 +286,6 @@ def ingest(
     Example:
         autoflow ingest --events @events.json
     """
-    import json
-
     # Load configuration
     cli_settings = CLISettings.from_env()
     config = _load_config(cli_settings)
@@ -378,7 +381,9 @@ def init(
         autoflow init
         autoflow init --force
     """
-    import yaml
+    if not YAML_AVAILABLE:
+        typer.echo("PyYAML required: pip install pyyaml", err=True)
+        raise typer.Exit(1)
 
     config_file = "autoflow.yaml"
 
@@ -452,20 +457,16 @@ def _load_config(cli_settings: CLISettings) -> AutoFlowConfig:
 
 def _print_output(data: dict) -> None:
     """Print output in the requested format."""
-    import json
-
     cli_settings = CLISettings.from_env()
     output_format = cli_settings.output_format
 
     if output_format == "json":
         typer.echo(json.dumps(data, indent=2))
     elif output_format == "yaml":
-        try:
-            import yaml
-            typer.echo(yaml.dump(data, default_flow_style=False))
-        except ImportError:
+        if not YAML_AVAILABLE:
             typer.echo("YAML output requires PyYAML: pip install pyyaml", err=True)
             raise typer.Exit(1)
+        typer.echo(yaml.dump(data, default_flow_style=False))
     elif output_format == "text":
         typer.echo(str(data))
     else:

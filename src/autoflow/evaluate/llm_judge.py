@@ -19,18 +19,28 @@ Supports multiple LLM providers:
 - Any provider via litellm unified interface
 """
 
+from __future__ import annotations
+
 import json
 import os
+import re
 from typing import Optional, Dict, Any
-from dataclasses import dataclass
+
+# Pydantic for validation
+try:
+    from pydantic import BaseModel, Field
+    PYDANTIC_AVAILABLE = True
+except ImportError:
+    PYDANTIC_AVAILABLE = False
+    BaseModel = object  # type: ignore
+    Field = lambda default=None, **kwargs: default
 
 from autoflow.types import ChangeProposal, EvaluationResult
 from autoflow.evaluate.evaluator import CompositeEvaluator
 from autoflow.llm.client import create_llm_client, LLMClientConfig
 
 
-@dataclass
-class LLMJudgeConfig:
+class LLMJudgeConfig(BaseModel if PYDANTIC_AVAILABLE else object):
     """Configuration for LLM judge."""
 
     # Model configuration (supports multiple providers)
@@ -230,7 +240,6 @@ Please analyze this proposal and provide your assessment."""
 
     def _mock_judgment(self) -> str:
         """Mock judgment for testing when LLM provider is not available."""
-        import json
         return json.dumps({
             "safety_score": 0.7,
             "correctness_score": 0.8,
@@ -243,7 +252,6 @@ Please analyze this proposal and provide your assessment."""
 
     def _conservative_judgment(self, error: str) -> str:
         """Conservative judgment when API fails."""
-        import json
         return json.dumps({
             "safety_score": 0.5,
             "correctness_score": 0.5,
@@ -256,13 +264,10 @@ Please analyze this proposal and provide your assessment."""
 
     def _parse_judgment(self, response: str) -> Dict[str, Any]:
         """Parse LLM response into judgment dict."""
-        import json
-
         try:
             return json.loads(response)
         except json.JSONDecodeError:
             # Response not valid JSON, try to extract it
-            import re
             match = re.search(r'\{[^{}]*\}', response)
             if match:
                 try:

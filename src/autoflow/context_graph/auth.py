@@ -11,13 +11,22 @@ and modify the graph. Designed to be flexible for different use cases:
 
 from abc import ABC, abstractmethod
 from datetime import datetime, timedelta
-from typing import Any, Optional, Callable, Set, List
 from enum import Enum
 import hashlib
 import json
+import os
+from typing import Any, Optional, Callable, Set, List
 
 # Pydantic for validation and serialization
 from pydantic import BaseModel, Field, field_validator, ConfigDict, model_validator
+
+# Optional JWT dependency
+try:
+    import jwt
+    JWT_AVAILABLE = True
+except ImportError:
+    JWT_AVAILABLE = False
+    jwt = None  # type: ignore
 
 
 class Permission(str, Enum):
@@ -202,8 +211,6 @@ class APIKeyAuthenticator(Authenticator):
 
     def _load_from_env(self) -> dict[str, dict[str, Any]]:
         """Load API keys from environment variables."""
-        import os
-
         keys = {}
         # Format: CTX_API_KEY_user_id=roles:permission1,permission2
         for key, value in os.environ.items():
@@ -286,9 +293,7 @@ class JWTAuthenticator(Authenticator):
         Note:
             Requires 'pyjwt' package: pip install pyjwt
         """
-        try:
-            import jwt
-        except ImportError:
+        if not JWT_AVAILABLE:
             raise ImportError("JWTAuthenticator requires 'pyjwt' package. Install with: pip install pyjwt")
 
         self.jwt = jwt

@@ -8,14 +8,19 @@ Enhanced with querying, aggregation, and export capabilities.
 """
 
 from abc import ABC, abstractmethod
-from datetime import datetime
-from typing import Any, Optional, Callable, Generator
-from enum import Enum
-import json
-import threading
-from queue import Queue
-import time
 from collections import defaultdict
+from datetime import datetime
+from enum import Enum
+import gzip
+import inspect
+import json
+import os
+import shutil
+import sqlite3
+import threading
+import time
+from queue import Queue
+from typing import Any, Optional, Callable, Generator
 
 # Pydantic for validation and serialization
 from pydantic import BaseModel, Field, ConfigDict
@@ -172,7 +177,6 @@ class FileAuditBackend(AuditBackend):
             # Check rotation
             if self.rotate:
                 try:
-                    import os
                     if os.path.exists(self.filepath):
                         size = os.path.getsize(self.filepath)
                         if size > self.max_size_bytes:
@@ -188,9 +192,6 @@ class FileAuditBackend(AuditBackend):
 
     def _rotate(self) -> None:
         """Rotate log file."""
-        import os
-        import shutil
-        from datetime import datetime
 
         timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
         backup_path = f"{self.filepath}.{timestamp}"
@@ -198,9 +199,8 @@ class FileAuditBackend(AuditBackend):
         try:
             shutil.move(self.filepath, backup_path)
 
-            # Compress old logs if gzip available
+            # Compress old logs
             try:
-                import gzip
                 with open(backup_path, "rb") as f_in:
                     with gzip.open(f"{backup_path}.gz", "wb") as f_out:
                         shutil.copyfileobj(f_in, f_out)
@@ -261,8 +261,6 @@ class DatabaseAuditBackend(AuditBackend):
         try:
             # Placeholder for actual DB write
             # In production, use connection pool and proper SQL
-            import sqlite3
-
             conn = sqlite3.connect(":memory:")  # In-memory for demo
             cursor = conn.cursor()
 
@@ -437,7 +435,6 @@ class Auditor:
         )
 
         if self.include_caller_info:
-            import inspect
             frame = inspect.currentframe()
             if frame and frame.f_back:
                 caller = frame.f_back
